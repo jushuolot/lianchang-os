@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/SceneContext'
 import { PHASE_LABEL, STATION_META, type StationId } from '../types'
 import { WorkLogPanel } from '../components/ChatThread'
+import { PovStage } from '../components/PovStage'
 import { SCENE_CATALOG } from '../seed'
 
 function TipBar({ tip }: { tip: string | null }) {
@@ -20,13 +21,13 @@ function useRun() {
   return { tip, go }
 }
 
-function JobCard() {
+function JobCard({ compact }: { compact?: boolean }) {
   const { job, seals } = useApp()
   return (
-    <aside className="job-card">
+    <aside className={`job-card ${compact ? 'compact' : ''}`}>
       <div className="job-ref">{job.refNo}</div>
       <h3>{job.title}</h3>
-      <p className="job-summary">{job.summary}</p>
+      {!compact && <p className="job-summary">{job.summary}</p>}
       <dl className="job-dl">
         <div>
           <dt>状态</dt>
@@ -44,20 +45,24 @@ function JobCard() {
             {job.driverName} · {job.plate}
           </dd>
         </div>
-        <div>
-          <dt>提货人</dt>
-          <dd>{job.customerName}</dd>
-        </div>
+        {!compact && (
+          <div>
+            <dt>提货人</dt>
+            <dd>{job.customerName}</dd>
+          </div>
+        )}
         <div>
           <dt>通行口令</dt>
           <dd className="code">{job.passCode}</dd>
         </div>
       </dl>
-      <ul className="job-notes">
-        {job.checklist.map((n) => (
-          <li key={n}>{n}</li>
-        ))}
-      </ul>
+      {!compact && (
+        <ul className="job-notes">
+          {job.checklist.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
       {seals.length > 0 && (
         <div className="seals">
           {seals.map((s) => (
@@ -113,97 +118,100 @@ function StationTabs() {
   )
 }
 
-function DispatchStation() {
-  const { logs } = useApp()
-  const ops = logs.filter((l) => l.channel === 'ops')
-  return (
-    <div className="grid">
-      <WorkLogPanel title="作业指令 / 回报" logs={ops} />
-      <div className="col">
-        <JobCard />
-        <OpsButtons
-          items={[
-            { action: 'dispatch', label: '下达派车指令', primary: true },
-            { action: 'arrive_gate', label: '登记：司机到闸' },
-          ]}
-        />
-      </div>
-    </div>
-  )
-}
+function StationBody() {
+  const { activeStation, logs, gateChecks, toggleGateCheck, job } = useApp()
 
-function DriverStation() {
-  const { logs } = useApp()
-  const ops = logs.filter((l) => l.channel === 'ops' || l.channel === 'gate')
-  return (
-    <div className="grid phone-layout">
-      <div className="device">
-        <div className="device-bar">司机端</div>
-        <WorkLogPanel title="我的任务动态" logs={ops} />
-        <OpsButtons
-          items={[
-            { action: 'arrive_gate', label: '到闸报到', primary: true },
-            { action: 'ready', label: '申报备货完成' },
-          ]}
-        />
+  if (activeStation === 'dispatch') {
+    const ops = logs.filter((l) => l.channel === 'ops')
+    return (
+      <div className="stage-grid">
+        <PovStage station="dispatch" phase={job.phase}>
+          <OpsButtons
+            items={[
+              { action: 'dispatch', label: '下达派车指令', primary: true },
+              { action: 'arrive_gate', label: '登记：司机到闸' },
+            ]}
+          />
+        </PovStage>
+        <div className="rail">
+          <JobCard compact />
+          <WorkLogPanel title="作业指令 / 回报" logs={ops} />
+        </div>
       </div>
-      <JobCard />
-    </div>
-  )
-}
+    )
+  }
 
-function GateStation() {
-  const { logs, gateChecks, toggleGateCheck } = useApp()
-  const gate = logs.filter((l) => l.channel === 'gate')
-  return (
-    <div className="grid">
-      <WorkLogPanel title="门岗作业记录" logs={gate} tone="radio" />
-      <div className="col">
-        <section className="panel">
-          <header className="panel-hd">
+  if (activeStation === 'driver') {
+    const ops = logs.filter((l) => l.channel === 'ops' || l.channel === 'gate')
+    return (
+      <div className="stage-grid">
+        <PovStage station="driver" phase={job.phase}>
+          <OpsButtons
+            items={[
+              { action: 'arrive_gate', label: '到闸报到', primary: true },
+              { action: 'ready', label: '申报备货完成' },
+            ]}
+          />
+        </PovStage>
+        <div className="rail">
+          <JobCard compact />
+          <WorkLogPanel title="我的任务动态" logs={ops} />
+        </div>
+      </div>
+    )
+  }
+
+  if (activeStation === 'gate') {
+    const gate = logs.filter((l) => l.channel === 'gate')
+    return (
+      <div className="stage-grid">
+        <PovStage station="gate" phase={job.phase}>
+          <section className="hud-panel">
             <h2>入场核验</h2>
-          </header>
-          <ul className="checks">
-            {gateChecks.map((c) => (
-              <li key={c.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={c.done}
-                    onChange={() => toggleGateCheck(c.id)}
-                  />
-                  {c.label}
-                </label>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <OpsButtons
-          items={[
-            { action: 'admit', label: '核验通过 · 准予入场', primary: true },
-            { action: 'depart', label: '离场核验 · 准予驶离' },
-          ]}
-        />
-        <JobCard />
+            <ul className="checks hud-checks">
+              {gateChecks.map((c) => (
+                <li key={c.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={c.done}
+                      onChange={() => toggleGateCheck(c.id)}
+                    />
+                    {c.label}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <OpsButtons
+            items={[
+              { action: 'admit', label: '核验通过 · 准予入场', primary: true },
+              { action: 'depart', label: '离场核验 · 准予驶离' },
+            ]}
+          />
+        </PovStage>
+        <div className="rail">
+          <JobCard compact />
+          <WorkLogPanel title="门岗作业记录" logs={gate} tone="radio" />
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
-function CounterStation() {
-  const { logs } = useApp()
   const counter = logs.filter((l) => l.channel === 'counter')
   return (
-    <div className="grid">
-      <WorkLogPanel title="提货窗口记录" logs={counter} />
-      <div className="col">
-        <JobCard />
+    <div className="stage-grid">
+      <PovStage station="counter" phase={job.phase}>
         <OpsButtons
           items={[
             { action: 'counter_checkin', label: '提货人报到', primary: true },
             { action: 'sign', label: '点件签收确认' },
           ]}
         />
+      </PovStage>
+      <div className="rail">
+        <JobCard compact />
+        <WorkLogPanel title="提货窗口记录" logs={counter} />
       </div>
     </div>
   )
@@ -244,14 +252,11 @@ export function SceneApp() {
       <div className="station-hd">
         <strong>{meta.title}</strong>
         <span>
-          {meta.role} · {meta.purpose}
+          {meta.role} · {meta.purpose} · 第一人称实景
         </span>
       </div>
 
-      {activeStation === 'dispatch' && <DispatchStation />}
-      {activeStation === 'driver' && <DriverStation />}
-      {activeStation === 'gate' && <GateStation />}
-      {activeStation === 'counter' && <CounterStation />}
+      <StationBody />
 
       <footer className="foot">
         链场 OS · 物流供应链现场操作系统 · 流程即场景，工位协同，工作语言办事
