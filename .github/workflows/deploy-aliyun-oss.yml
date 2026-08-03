@@ -1,0 +1,50 @@
+name: Deploy Aliyun OSS
+
+on:
+  workflow_dispatch:
+
+# 在仓库 Settings → Secrets 配置后再启用 push 自动发布：
+# ALIYUN_ACCESS_KEY_ID / ALIYUN_ACCESS_KEY_SECRET / OSS_BUCKET / OSS_ENDPOINT
+# 可选 OSS_PREFIX
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build (root base for os.v2way.com)
+        run: |
+          npm ci
+          VITE_BASE=/ npm run build
+      - name: Install ossutil
+        run: |
+          curl -fsSL -o ossutil https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64
+          chmod +x ossutil
+          sudo mv ossutil /usr/local/bin/ossutil
+      - name: Upload to OSS
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_PREFIX: ${{ secrets.OSS_PREFIX }}
+        run: |
+          cat > /tmp/ossconfig <<EOF
+          [Credentials]
+          language=EN
+          accessKeyID=${ALIYUN_ACCESS_KEY_ID}
+          accessKeySecret=${ALIYUN_ACCESS_KEY_SECRET}
+          endpoint=${OSS_ENDPOINT}
+          EOF
+          PREFIX="${OSS_PREFIX:-}"
+          if [ -n "$PREFIX" ]; then
+            DEST="oss://${OSS_BUCKET}/${PREFIX%/}/"
+          else
+            DEST="oss://${OSS_BUCKET}/"
+          fi
+          ossutil -c /tmp/ossconfig cp -r -f dist/ "$DEST"
+          echo "Uploaded to $DEST"

@@ -14,6 +14,60 @@ function img(name: string) {
 }
 
 export function resolvePov(station: StationId, phase: JobPhase): PovShot {
+  const pickPhases: JobPhase[] = [
+    'wave_released',
+    'picking',
+    'picked',
+    'checked',
+    'staged',
+  ]
+  const isPick = pickPhases.includes(phase) || (phase === 'draft' && station !== 'dispatch')
+
+  // 粗判：拣货相关相位用仓内图
+  if (
+    pickPhases.includes(phase) ||
+    (phase === 'closed' && station !== 'dispatch')
+  ) {
+    if (station === 'dispatch') {
+      return {
+        src: img('dispatch.jpg'),
+        stance: '调度台',
+        focus: '出库波次与节点',
+      }
+    }
+    if (station === 'gate') {
+      return {
+        src: img(phase === 'picked' || phase === 'checked' ? 'cargo.jpg' : 'counter.jpg'),
+        stance: '复核台',
+        focus: '出库复核作业',
+      }
+    }
+    if (station === 'counter') {
+      return {
+        src: img(phase === 'staged' || phase === 'closed' ? 'cargo.jpg' : 'dock-work.jpg'),
+        stance: '月台交接',
+        focus: '月台点交',
+      }
+    }
+    // driver / picker
+    if (phase === 'checked' || phase === 'staged') {
+      return {
+        src: img('dock-work.jpg'),
+        stance: '拣货端 · 送月台',
+        focus: '月台通道',
+      }
+    }
+    if (phase === 'picking' || phase === 'picked' || phase === 'wave_released') {
+      return {
+        src: img('dock.jpg'),
+        stance: '拣货端 · 库位',
+        focus: '库区拣货通道',
+      }
+    }
+  }
+
+  void isPick
+
   if (station === 'dispatch') {
     return {
       src: img('dispatch.jpg'),
@@ -59,12 +113,7 @@ export function resolvePov(station: StationId, phase: JobPhase): PovShot {
     }
   }
 
-  // driver — 手机终端视线
-  if (
-    phase === 'admitted' ||
-    phase === 'ready_for_pickup' ||
-    phase === 'signed'
-  ) {
+  if (phase === 'admitted' || phase === 'ready_for_pickup' || phase === 'signed') {
     return {
       src: img('dock-work.jpg'),
       stance: '司机端 · 场内作业',
@@ -95,6 +144,6 @@ export function resolvePov(station: StationId, phase: JobPhase): PovShot {
   return {
     src: img('dock.jpg'),
     stance: '司机端 · 待命',
-    focus: '仓配通道，等待派车指令',
+    focus: '仓配通道，等待指令',
   }
 }

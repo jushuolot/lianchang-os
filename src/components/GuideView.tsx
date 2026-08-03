@@ -1,15 +1,17 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import { useApp } from '../context/SceneContext'
 import {
-  GUIDE_ROLE_LABEL,
-  GUIDE_ROLE_STATION,
-  SCENE_PROGRESS,
-  progressDone,
+  guideRolesFor,
   resolveGuideStep,
+  sceneProgress,
+  progressDone,
   type GuideRole,
 } from '../guide'
+import { getScene } from '../scenes'
 import { YardMap } from './YardMap'
 import { compressFieldPhoto } from '../lib/compressImage'
+import { BASE_GUIDE_ROLE_STATION } from '../guideShared'
+import { phaseLabelFor } from '../types'
 
 export function GuideView({
   role,
@@ -21,7 +23,10 @@ export function GuideView({
   onOpenStation: () => void
 }) {
   const app = useApp()
-  const { job, run, gateChecks, toggleGateCheck, addPhoto, photos, setStation } = app
+  const { job, run, gateChecks, toggleGateCheck, addPhoto, photos, setStation, scene } = app
+  const mod = getScene(scene.id)
+  const roles = guideRolesFor(app)
+  const progress = sceneProgress(app)
   const step = resolveGuideStep(app, role)
   const [tip, setTip] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -30,6 +35,10 @@ export function GuideView({
   const shotDone = step.photoKind
     ? photos.some((p) => p.kind === step.photoKind)
     : false
+  const roleMeta = roles.find((r) => r.id === role)
+  const showChecks =
+    (scene.id === 'scene-self-pickup' && role === 'gate' && job.phase === 'arrived_gate') ||
+    (scene.id === 'scene-pick-dock' && role === 'checker' && job.phase === 'picked')
 
   function flash(msg: string) {
     setTip(msg)
@@ -37,7 +46,8 @@ export function GuideView({
   }
 
   function doAction(action: string) {
-    setStation(GUIDE_ROLE_STATION[role])
+    const st = BASE_GUIDE_ROLE_STATION[role]
+    if (st) setStation(st)
     flash(run(action).tip)
   }
 
@@ -45,9 +55,9 @@ export function GuideView({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !step.photoKind) return
-    const station = GUIDE_ROLE_STATION[role]
-    if (station === 'dispatch') {
-      flash('调度台无需拍照')
+    const station = BASE_GUIDE_ROLE_STATION[role]
+    if (!station || station === 'dispatch') {
+      flash('本岗无需拍照')
       return
     }
     setBusy(true)
@@ -71,25 +81,28 @@ export function GuideView({
   return (
     <div className="guide">
       <div className="guide-roles" role="tablist" aria-label="选择操作者">
-        {(Object.keys(GUIDE_ROLE_LABEL) as GuideRole[]).map((r) => (
+        {roles.map((r) => (
           <button
-            key={r}
+            key={r.id}
             type="button"
             role="tab"
-            aria-selected={role === r}
-            className={role === r ? 'on' : ''}
+            aria-selected={role === r.id}
+            className={role === r.id ? 'on' : ''}
             onClick={() => {
-              onRole(r)
-              setStation(GUIDE_ROLE_STATION[r])
+              onRole(r.id)
+              setStation(r.station)
             }}
           >
-            {GUIDE_ROLE_LABEL[r]}
+            {r.label}
           </button>
         ))}
       </div>
 
-      <ol className="guide-progress">
-        {SCENE_PROGRESS.map((p) => (
+      <ol
+        className="guide-progress"
+        style={{ gridTemplateColumns: `repeat(${progress.length}, 1fr)` }}
+      >
+        {progress.map((p) => (
           <li key={p.id} className={progressDone(job.phase, p.phases) ? 'done' : ''}>
             {p.label}
           </li>
@@ -100,11 +113,12 @@ export function GuideView({
         <div className="guide-main">
           <header className="guide-step-hd">
             <p className="guide-kicker">
-              {GUIDE_ROLE_LABEL[role]} · 现场导引
+              {roleMeta?.label ?? role} · 现场导引
               {step.done ? ' · 已完成' : ''}
             </p>
             <h2>{step.title}</h2>
             <p className="guide-where">{step.where}</p>
+            <p className="guide-phase">{phaseLabelFor(job.phase, mod.phaseLabel)}</p>
           </header>
 
           <div className="guide-visual">
@@ -112,7 +126,12 @@ export function GuideView({
               <img src={step.image} alt={step.imageCaption} />
               <figcaption>{step.imageCaption}</figcaption>
             </figure>
-            <YardMap current={step.mapPoint} next={step.nextPoint} />
+            <YardMap
+              current={step.mapPoint}
+              next={step.nextPoint}
+              layout={mod.mapLayout}
+              points={mod.mapPoints}
+            />
           </div>
 
           <section className="guide-req">
@@ -124,9 +143,9 @@ export function GuideView({
             </ul>
           </section>
 
-          {role === 'gate' && job.phase === 'arrived_gate' && (
+          {showChecks && (
             <section className="guide-checks">
-              <h3>入场核验项</h3>
+              <h3>{scene.id === 'scene-pick-dock' ? '复核项' : '入场核验项'}</h3>
               <ul className="checks">
                 {gateChecks.map((c) => (
                   <li key={c.id}>
@@ -148,7 +167,7 @@ export function GuideView({
           {step.waiting && !step.primary && <p className="guide-wait">{step.waiting}</p>}
 
           <div className="guide-actions">
-            {step.photoKind && role !== 'dispatcher' && (
+            {step.photoKind && (
               <>
                 <input
                   id={inputId}
@@ -193,19 +212,20 @@ export function GuideView({
                 </dd>
               </div>
               <div>
-                <dt>通行口令</dt>
+                <dt>{scene.id === 'scene-pick-dock' ? '库位路径' : '通行口令'}</dt>
                 <dd className="code">{job.passCode}</dd>
               </div>
               <div>
-                <dt>运力</dt>
+                <dt>{scene.id === 'scene-pick-dock' ? '拣货员' : '运力'}</dt>
                 <dd>
-                  {job.driverName} · {job.plate}
+                  {job.driverName}
+                  {scene.id === 'scene-pick-dock' ? '' : ` · ${job.plate}`}
                 </dd>
               </div>
             </dl>
           </div>
           <p className="guide-help">
-            地图标出你在哪、下一步去哪；图片是当前节点实景；按「本步要求」完成单一操作即可。熟悉后可切换完整工位。
+            地图标出你在哪、下一步去哪；图片是当前节点实景；按「本步要求」完成单一操作即可。
           </p>
           <button type="button" className="btn ghost" onClick={onOpenStation}>
             切换完整工位

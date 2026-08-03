@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/SceneContext'
-import { PHASE_LABEL, STATION_META, type StationId } from '../types'
+import { phaseLabelFor, type StationId } from '../types'
 import { WorkLogPanel } from '../components/ChatThread'
 import { PovStage } from '../components/PovStage'
 import { FieldCamera } from '../components/FieldCamera'
 import { GuideView } from '../components/GuideView'
-import { SCENE_CATALOG } from '../seed'
-import {
-  GUIDE_ROLE_STATION,
-  type GuideRole,
-} from '../guide'
+import { SCENE_CATALOG, getScene } from '../seed'
+import { BASE_GUIDE_ROLE_STATION, type GuideRole } from '../guideShared'
 
 const UI_KEY = 'lianchang-os-ui-v1'
 const ROLE_KEY = 'lianchang-os-guide-role'
@@ -24,16 +21,6 @@ function loadUi(): UiMode {
     /* ignore */
   }
   return 'guide'
-}
-
-function loadRole(): GuideRole {
-  try {
-    const v = localStorage.getItem(ROLE_KEY)
-    if (v === 'customer' || v === 'driver' || v === 'gate' || v === 'dispatcher') return v
-  } catch {
-    /* ignore */
-  }
-  return 'customer'
 }
 
 function TipBar({ tip }: { tip: string | null }) {
@@ -53,7 +40,8 @@ function useRun() {
 }
 
 function JobCard({ compact }: { compact?: boolean }) {
-  const { job, seals } = useApp()
+  const { job, seals, scene } = useApp()
+  const mod = getScene(scene.id)
   return (
     <aside className={`job-card ${compact ? 'compact' : ''}`}>
       <div className="job-ref">{job.refNo}</div>
@@ -62,7 +50,7 @@ function JobCard({ compact }: { compact?: boolean }) {
       <dl className="job-dl">
         <div>
           <dt>状态</dt>
-          <dd>{PHASE_LABEL[job.phase]}</dd>
+          <dd>{phaseLabelFor(job.phase, mod.phaseLabel)}</dd>
         </div>
         <div>
           <dt>作业点</dt>
@@ -71,29 +59,17 @@ function JobCard({ compact }: { compact?: boolean }) {
           </dd>
         </div>
         <div>
-          <dt>运力</dt>
+          <dt>{scene.id === 'scene-pick-dock' ? '拣货员' : '运力'}</dt>
           <dd>
-            {job.driverName} · {job.plate}
+            {job.driverName}
+            {scene.id === 'scene-pick-dock' ? ` · ${job.plate}` : ` · ${job.plate}`}
           </dd>
         </div>
-        {!compact && (
-          <div>
-            <dt>提货人</dt>
-            <dd>{job.customerName}</dd>
-          </div>
-        )}
         <div>
-          <dt>通行口令</dt>
+          <dt>{scene.id === 'scene-pick-dock' ? '库位路径' : '通行口令'}</dt>
           <dd className="code">{job.passCode}</dd>
         </div>
       </dl>
-      {!compact && (
-        <ul className="job-notes">
-          {job.checklist.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      )}
       {seals.length > 0 && (
         <div className="seals">
           {seals.map((s) => (
@@ -131,38 +107,80 @@ function OpsButtons({
 }
 
 function StationTabs() {
-  const { activeStation, setStation } = useApp()
+  const { activeStation, setStation, scene } = useApp()
+  const meta = getScene(scene.id).stationMeta
   return (
     <nav className="tabs">
-      {(Object.keys(STATION_META) as StationId[]).map((id) => (
+      {(Object.keys(meta) as StationId[]).map((id) => (
         <button
           key={id}
           type="button"
           className={activeStation === id ? 'on' : ''}
           onClick={() => setStation(id)}
         >
-          <span>{STATION_META[id].title}</span>
-          <small>{STATION_META[id].role}</small>
+          <span>{meta[id].title}</span>
+          <small>{meta[id].role}</small>
         </button>
       ))}
     </nav>
   )
 }
 
+function stationOps(sceneId: string, station: StationId) {
+  if (sceneId === 'scene-pick-dock') {
+    if (station === 'dispatch') {
+      return [{ action: 'release_wave', label: '下发出库波次', primary: true }]
+    }
+    if (station === 'driver') {
+      return [
+        { action: 'start_pick', label: '开始拣货', primary: true },
+        { action: 'finish_pick', label: '申报拣货完成' },
+        { action: 'stage_dock', label: '确认已送达月台' },
+      ]
+    }
+    if (station === 'gate') {
+      return [{ action: 'check_pass', label: '复核通过', primary: true }]
+    }
+    return [{ action: 'dock_confirm', label: '确认交接 · 关闭本票', primary: true }]
+  }
+  if (station === 'dispatch') {
+    return [
+      { action: 'dispatch', label: '下达派车指令', primary: true },
+      { action: 'arrive_gate', label: '登记：司机到闸' },
+    ]
+  }
+  if (station === 'driver') {
+    return [
+      { action: 'arrive_gate', label: '到闸报到', primary: true },
+      { action: 'ready', label: '申报备货完成' },
+    ]
+  }
+  if (station === 'gate') {
+    return [
+      { action: 'admit', label: '核验通过 · 准予入场', primary: true },
+      { action: 'depart', label: '离场核验 · 准予驶离' },
+    ]
+  }
+  return [
+    { action: 'counter_checkin', label: '提货人报到', primary: true },
+    { action: 'sign', label: '点件签收确认' },
+  ]
+}
+
 function StationBody() {
-  const { activeStation, logs, gateChecks, toggleGateCheck, job } = useApp()
+  const { activeStation, logs, gateChecks, toggleGateCheck, job, scene } = useApp()
+  const opsItems = stationOps(scene.id, activeStation)
+  const checkTitle = scene.id === 'scene-pick-dock' ? '出库复核' : '入场核验'
+  const showChecks =
+    activeStation === 'gate' &&
+    (scene.id === 'scene-self-pickup' || job.phase === 'picked')
 
   if (activeStation === 'dispatch') {
     const ops = logs.filter((l) => l.channel === 'ops')
     return (
       <div className="stage-grid">
         <PovStage station="dispatch" phase={job.phase}>
-          <OpsButtons
-            items={[
-              { action: 'dispatch', label: '下达派车指令', primary: true },
-              { action: 'arrive_gate', label: '登记：司机到闸' },
-            ]}
-          />
+          <OpsButtons items={opsItems} />
         </PovStage>
         <div className="rail">
           <JobCard compact />
@@ -177,17 +195,12 @@ function StationBody() {
     return (
       <div className="stage-grid">
         <PovStage station="driver" phase={job.phase}>
-          <OpsButtons
-            items={[
-              { action: 'arrive_gate', label: '到闸报到', primary: true },
-              { action: 'ready', label: '申报备货完成' },
-            ]}
-          />
+          <OpsButtons items={opsItems} />
         </PovStage>
         <div className="rail">
           <JobCard compact />
           <FieldCamera station="driver" />
-          <WorkLogPanel title="我的任务动态" logs={ops} />
+          <WorkLogPanel title="任务动态" logs={ops} />
         </div>
       </div>
     )
@@ -198,34 +211,35 @@ function StationBody() {
     return (
       <div className="stage-grid">
         <PovStage station="gate" phase={job.phase}>
-          <section className="hud-panel">
-            <h2>入场核验</h2>
-            <ul className="checks hud-checks">
-              {gateChecks.map((c) => (
-                <li key={c.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={c.done}
-                      onChange={() => toggleGateCheck(c.id)}
-                    />
-                    {c.label}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <OpsButtons
-            items={[
-              { action: 'admit', label: '核验通过 · 准予入场', primary: true },
-              { action: 'depart', label: '离场核验 · 准予驶离' },
-            ]}
-          />
+          {showChecks && (
+            <section className="hud-panel">
+              <h2>{checkTitle}</h2>
+              <ul className="checks hud-checks">
+                {gateChecks.map((c) => (
+                  <li key={c.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={c.done}
+                        onChange={() => toggleGateCheck(c.id)}
+                      />
+                      {c.label}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <OpsButtons items={opsItems} />
         </PovStage>
         <div className="rail">
           <JobCard compact />
           <FieldCamera station="gate" />
-          <WorkLogPanel title="门岗作业记录" logs={gate} tone="radio" />
+          <WorkLogPanel
+            title={scene.id === 'scene-pick-dock' ? '复核记录' : '门岗作业记录'}
+            logs={gate}
+            tone="radio"
+          />
         </div>
       </div>
     )
@@ -235,27 +249,26 @@ function StationBody() {
   return (
     <div className="stage-grid">
       <PovStage station="counter" phase={job.phase}>
-        <OpsButtons
-          items={[
-            { action: 'counter_checkin', label: '提货人报到', primary: true },
-            { action: 'sign', label: '点件签收确认' },
-          ]}
-        />
+        <OpsButtons items={opsItems} />
       </PovStage>
       <div className="rail">
         <JobCard compact />
         <FieldCamera station="counter" />
-        <WorkLogPanel title="提货窗口记录" logs={counter} />
+        <WorkLogPanel
+          title={scene.id === 'scene-pick-dock' ? '月台交接记录' : '提货窗口记录'}
+          logs={counter}
+        />
       </div>
     </div>
   )
 }
 
 export function SceneApp() {
-  const { productName, scene, activeStation, reset, setStation } = useApp()
-  const meta = STATION_META[activeStation]
+  const { productName, scene, activeStation, reset, setStation, switchScene } = useApp()
+  const mod = getScene(scene.id)
+  const meta = mod.stationMeta[activeStation]
   const [mode, setMode] = useState<UiMode>(() => loadUi())
-  const [role, setRole] = useState<GuideRole>(() => loadRole())
+  const [role, setRole] = useState<GuideRole>(() => mod.defaultGuideRole)
 
   useEffect(() => {
     try {
@@ -267,14 +280,21 @@ export function SceneApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(ROLE_KEY, role)
+      localStorage.setItem(ROLE_KEY, `${scene.id}:${role}`)
     } catch {
       /* ignore */
     }
-  }, [role])
+  }, [role, scene.id])
 
   useEffect(() => {
-    if (mode === 'guide') setStation(GUIDE_ROLE_STATION[role])
+    setRole(getScene(scene.id).defaultGuideRole)
+  }, [scene.id])
+
+  useEffect(() => {
+    if (mode === 'guide') {
+      const st = BASE_GUIDE_ROLE_STATION[role]
+      if (st) setStation(st)
+    }
   }, [mode, role, setStation])
 
   return (
@@ -309,22 +329,21 @@ export function SceneApp() {
       <section className="catalog">
         <span className="catalog-label">场景模块</span>
         {SCENE_CATALOG.map((c) => (
-          <span
+          <button
             key={c.id}
-            className={`scene-pill ${c.status === 'active' ? 'active' : 'planned'}`}
+            type="button"
+            className={`scene-pill ${c.id === scene.id ? 'active' : ''} ${c.status === 'planned' ? 'planned' : ''}`}
+            disabled={c.status === 'planned'}
+            onClick={() => switchScene(c.id)}
           >
             {c.name}
             {c.status === 'planned' ? ' · 待加' : ''}
-          </span>
+          </button>
         ))}
       </section>
 
       {mode === 'guide' ? (
-        <GuideView
-          role={role}
-          onRole={setRole}
-          onOpenStation={() => setMode('station')}
-        />
+        <GuideView role={role} onRole={setRole} onOpenStation={() => setMode('station')} />
       ) : (
         <>
           <StationTabs />

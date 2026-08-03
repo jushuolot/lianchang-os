@@ -380,6 +380,19 @@ input {
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.scene-pill:disabled {
+  cursor: not-allowed;
+}
+
+.guide-phase {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--accent);
 }
 
 .scene-pill.active {
