@@ -8,14 +8,22 @@ import {
   type ReactNode,
 } from 'react'
 import { seedApp } from '../seed'
+import type { FieldShot, FieldShotKind } from '../fieldPhoto'
 import type { ActorId, AppState, JobPhase, LogKind, StationId, WorkLog } from '../types'
 
-const KEY = 'lianchang-os-v1'
+const KEY = 'lianchang-os-v2'
 
 interface Api extends AppState {
   setStation: (s: StationId) => void
   run: (action: string) => { ok: boolean; tip: string }
   toggleGateCheck: (id: string) => void
+  addPhoto: (input: {
+    station: FieldShot['station']
+    kind: FieldShotKind
+    label: string
+    dataUrl: string
+  }) => { ok: boolean; tip: string }
+  removePhoto: (id: string) => void
   reset: () => void
   channel: (id: string) => WorkLog[]
 }
@@ -32,13 +40,25 @@ function clock() {
 }
 
 function load(): AppState {
+  const base = seedApp()
   try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return { ...seedApp(), ...JSON.parse(raw), productName: '链场 OS' }
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem('lianchang-os-v1')
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AppState>
+      return {
+        ...base,
+        ...parsed,
+        productName: '链场 OS',
+        photos: Array.isArray(parsed.photos) ? parsed.photos : [],
+        gateChecks: parsed.gateChecks ?? base.gateChecks,
+        logs: parsed.logs ?? base.logs,
+        job: { ...base.job, ...parsed.job },
+      }
+    }
   } catch {
     /* ignore */
   }
-  return seedApp()
+  return base
 }
 
 function seal(list: string[], s: string) {
@@ -54,6 +74,18 @@ function log(
   return { id: uid('l'), channel, from, text, at: clock(), kind }
 }
 
+const PHOTO_ACTOR: Record<FieldShot['station'], ActorId> = {
+  driver: 'driver',
+  gate: 'gate',
+  counter: 'customer',
+}
+
+const PHOTO_CHANNEL: Record<FieldShot['station'], string> = {
+  driver: 'ops',
+  gate: 'gate',
+  counter: 'counter',
+}
+
 export function SceneProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(() => load())
 
@@ -61,7 +93,16 @@ export function SceneProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(KEY, JSON.stringify(state))
     } catch {
-      /* ignore */
+      /* quota — drop oldest photos and retry once */
+      try {
+        const slim = {
+          ...state,
+          photos: state.photos.slice(-4),
+        }
+        localStorage.setItem(KEY, JSON.stringify(slim))
+      } catch {
+        /* ignore */
+      }
     }
   }, [state])
 
@@ -74,6 +115,53 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       ...s,
       gateChecks: s.gateChecks.map((c) => (c.id === id ? { ...c, done: !c.done } : c)),
     }))
+  }, [])
+
+  const addPhoto = useCallback(
+    (input: {
+      station: FieldShot['station']
+      kind: FieldShotKind
+      label: string
+      dataUrl: string
+    }) => {
+      let result = { ok: true, tip: '现场照片已归档' }
+      setState((s) => {
+        if (s.photos.length >= 12) {
+          result = { ok: false, tip: '本票取证已满，请删除旧照后再拍' }
+          return s
+        }
+        const shot: FieldShot = {
+          id: uid('p'),
+          station: input.station,
+          kind: input.kind,
+          label: input.label,
+          dataUrl: input.dataUrl,
+          at: clock(),
+        }
+        const from = PHOTO_ACTOR[input.station]
+        const channel = PHOTO_CHANNEL[input.station]
+        return {
+          ...s,
+          photos: [...s.photos, shot],
+          seals: seal(s.seals, '现场取证'),
+          logs: [
+            ...s.logs,
+            log(
+              channel,
+              from,
+              `现场取证：${input.label}（手机拍照已归档）。`,
+              input.station === 'gate' ? 'radio' : input.station === 'counter' ? 'counter' : 'report',
+            ),
+          ],
+        }
+      })
+      return result
+    },
+    [],
+  )
+
+  const removePhoto = useCallback((id: string) => {
+    setState((s) => ({ ...s, photos: s.photos.filter((p) => p.id !== id) }))
   }, [])
 
   const run = useCallback((action: string) => {
@@ -226,6 +314,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => {
     localStorage.removeItem(KEY)
+    localStorage.removeItem('lianchang-os-v1')
     setState(seedApp())
   }, [])
 
@@ -235,10 +324,12 @@ export function SceneProvider({ children }: { children: ReactNode }) {
       setStation,
       run,
       toggleGateCheck,
+      addPhoto,
+      removePhoto,
       reset,
       channel,
     }),
-    [state, setStation, run, toggleGateCheck, reset, channel],
+    [state, setStation, run, toggleGateCheck, addPhoto, removePhoto, reset, channel],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

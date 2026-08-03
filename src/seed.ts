@@ -36,6 +36,7 @@ export function seedApp(): AppState {
       { id: 'match', label: '车牌 / 提货人与预约一致', done: false },
     ],
     seals: [],
+    photos: [],
     logs: [
       {
         id: 'l1',

@@ -47,6 +47,10 @@ export interface SceneDefinition {
   brief: string
 }
 
+import type { FieldShot } from './fieldPhoto'
+
+export type { FieldShot, FieldShotKind } from './fieldPhoto'
+
 export interface AppState {
   productName: string
   scene: SceneDefinition
@@ -55,6 +59,8 @@ export interface AppState {
   logs: WorkLog[]
   gateChecks: { id: string; label: string; done: boolean }[]
   seals: string[]
+  /** 终端现场取证（手机拍照） */
+  photos: FieldShot[]
 }
 
 export const ACTOR_LABEL: Record<ActorId, string> = {
@@ -88,17 +94,17 @@ export const STATION_META: Record<
   },
   driver: {
     title: '司机端',
-    role: '司机岗',
-    purpose: '接收指令、到闸报到、场内备货回报',
+    role: '司机岗 · 手机终端',
+    purpose: '接收指令、到闸报到、场内备货回报、现场拍照取证',
   },
   gate: {
     title: '门岗台',
-    role: '门岗岗',
-    purpose: '核验口令与安全项，办理入场 / 离场',
+    role: '门岗岗 · 终端',
+    purpose: '核验口令与安全项，办理入场 / 离场，车牌与核验拍照',
   },
   counter: {
     title: '提货窗口',
-    role: '提货人 / 仓配协同',
-    purpose: '提货报到、点件签收',
+    role: '提货人 / 仓配 · 终端',
+    purpose: '提货报到、点件签收、签收现场拍照',
   },
 }

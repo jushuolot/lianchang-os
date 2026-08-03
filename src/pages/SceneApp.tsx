@@ -3,6 +3,7 @@ import { useApp } from '../context/SceneContext'
 import { PHASE_LABEL, STATION_META, type StationId } from '../types'
 import { WorkLogPanel } from '../components/ChatThread'
 import { PovStage } from '../components/PovStage'
+import { FieldCamera } from '../components/FieldCamera'
 import { SCENE_CATALOG } from '../seed'
 
 function TipBar({ tip }: { tip: string | null }) {
@@ -155,6 +156,7 @@ function StationBody() {
         </PovStage>
         <div className="rail">
           <JobCard compact />
+          <FieldCamera station="driver" />
           <WorkLogPanel title="我的任务动态" logs={ops} />
         </div>
       </div>
@@ -192,6 +194,7 @@ function StationBody() {
         </PovStage>
         <div className="rail">
           <JobCard compact />
+          <FieldCamera station="gate" />
           <WorkLogPanel title="门岗作业记录" logs={gate} tone="radio" />
         </div>
       </div>
@@ -211,6 +214,7 @@ function StationBody() {
       </PovStage>
       <div className="rail">
         <JobCard compact />
+        <FieldCamera station="counter" />
         <WorkLogPanel title="提货窗口记录" logs={counter} />
       </div>
     </div>
