@@ -1,10 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../context/SceneContext'
 import { PHASE_LABEL, STATION_META, type StationId } from '../types'
 import { WorkLogPanel } from '../components/ChatThread'
 import { PovStage } from '../components/PovStage'
 import { FieldCamera } from '../components/FieldCamera'
+import { GuideView } from '../components/GuideView'
 import { SCENE_CATALOG } from '../seed'
+import {
+  GUIDE_ROLE_STATION,
+  type GuideRole,
+} from '../guide'
+
+const UI_KEY = 'lianchang-os-ui-v1'
+const ROLE_KEY = 'lianchang-os-guide-role'
+
+type UiMode = 'guide' | 'station'
+
+function loadUi(): UiMode {
+  try {
+    const v = localStorage.getItem(UI_KEY)
+    if (v === 'station' || v === 'guide') return v
+  } catch {
+    /* ignore */
+  }
+  return 'guide'
+}
+
+function loadRole(): GuideRole {
+  try {
+    const v = localStorage.getItem(ROLE_KEY)
+    if (v === 'customer' || v === 'driver' || v === 'gate' || v === 'dispatcher') return v
+  } catch {
+    /* ignore */
+  }
+  return 'customer'
+}
 
 function TipBar({ tip }: { tip: string | null }) {
   if (!tip) return null
@@ -222,8 +252,30 @@ function StationBody() {
 }
 
 export function SceneApp() {
-  const { productName, scene, activeStation, reset } = useApp()
+  const { productName, scene, activeStation, reset, setStation } = useApp()
   const meta = STATION_META[activeStation]
+  const [mode, setMode] = useState<UiMode>(() => loadUi())
+  const [role, setRole] = useState<GuideRole>(() => loadRole())
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(UI_KEY, mode)
+    } catch {
+      /* ignore */
+    }
+  }, [mode])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ROLE_KEY, role)
+    } catch {
+      /* ignore */
+    }
+  }, [role])
+
+  useEffect(() => {
+    if (mode === 'guide') setStation(GUIDE_ROLE_STATION[role])
+  }, [mode, role, setStation])
 
   return (
     <div className="shell">
@@ -233,9 +285,25 @@ export function SceneApp() {
           <h1>{scene.name}</h1>
           <p className="brief">{scene.brief}</p>
         </div>
-        <button type="button" className="btn ghost" onClick={reset}>
-          重置本场
-        </button>
+        <div className="top-actions">
+          <button
+            type="button"
+            className={`btn ${mode === 'guide' ? 'primary' : 'ghost'}`}
+            onClick={() => setMode('guide')}
+          >
+            现场导引
+          </button>
+          <button
+            type="button"
+            className={`btn ${mode === 'station' ? 'primary' : 'ghost'}`}
+            onClick={() => setMode('station')}
+          >
+            完整工位
+          </button>
+          <button type="button" className="btn ghost" onClick={reset}>
+            重置本场
+          </button>
+        </div>
       </header>
 
       <section className="catalog">
@@ -251,19 +319,30 @@ export function SceneApp() {
         ))}
       </section>
 
-      <StationTabs />
-
-      <div className="station-hd">
-        <strong>{meta.title}</strong>
-        <span>
-          {meta.role} · {meta.purpose} · 第一人称实景
-        </span>
-      </div>
-
-      <StationBody />
+      {mode === 'guide' ? (
+        <GuideView
+          role={role}
+          onRole={setRole}
+          onOpenStation={() => setMode('station')}
+        />
+      ) : (
+        <>
+          <StationTabs />
+          <div className="station-hd">
+            <strong>{meta.title}</strong>
+            <span>
+              {meta.role} · {meta.purpose} · 第一人称实景
+            </span>
+            <button type="button" className="btn ghost sm" onClick={() => setMode('guide')}>
+              返回导引
+            </button>
+          </div>
+          <StationBody />
+        </>
+      )}
 
       <footer className="foot">
-        链场 OS · 物流供应链现场操作系统 · 流程即场景，工位协同，工作语言办事
+        链场 OS · 物流供应链现场操作系统 · 导引办单，工位协同，工作语言办事
       </footer>
     </div>
   )

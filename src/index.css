@@ -426,12 +426,278 @@ input {
   background: #eef7f4;
 }
 
+.top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .station-hd {
   display: flex;
   gap: 10px;
   align-items: baseline;
+  flex-wrap: wrap;
   margin: 8px 0 14px;
   font-size: 14px;
+}
+
+/* —— 现场导引 —— */
+.guide {
+  margin-top: 8px;
+}
+
+.guide-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.guide-roles button {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.guide-roles button.on {
+  border-color: var(--accent);
+  background: #e7f3ef;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.guide-progress {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.guide-progress li {
+  text-align: center;
+  font-size: 12px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.guide-progress li.done {
+  border-color: var(--accent);
+  background: #e7f3ef;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.75fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.guide-step-hd h2 {
+  margin: 4px 0 6px;
+  font-family: var(--display);
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 400;
+}
+
+.guide-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.guide-where {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.guide-visual {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.guide-pov {
+  margin: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #2a241c;
+  background: #111;
+  position: relative;
+  min-height: 220px;
+}
+
+.guide-pov img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+  animation: pov-in 0.45s ease both;
+}
+
+.guide-pov figcaption {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  right: 10px;
+  color: #f5f2ea;
+  font-size: 12px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.yard-map {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffdf8;
+  overflow: hidden;
+  min-height: 220px;
+}
+
+.yard-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.ym-bg {
+  fill: #f7f1e4;
+}
+
+.ym-road {
+  fill: none;
+  stroke: #c4b89f;
+  stroke-width: 18;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ym-road.faint {
+  stroke-width: 10;
+  stroke: #ddd3bf;
+}
+
+.ym-block {
+  fill: #ebe3d2;
+  stroke: #cfc3ab;
+  stroke-width: 1;
+}
+
+.ym-block.gate {
+  fill: #d7e8e2;
+  stroke: #0f5c4c;
+}
+
+.ym-block-label {
+  font-size: 11px;
+  fill: #6b6458;
+}
+
+.ym-dot {
+  fill: #fff;
+  stroke: #9a9180;
+  stroke-width: 2;
+}
+
+.ym-dot.next {
+  stroke: var(--accent-2);
+  stroke-width: 3;
+  fill: #fff7ed;
+}
+
+.ym-dot.current {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.ym-label {
+  font-size: 11px;
+  fill: #6b6458;
+}
+
+.ym-label.on {
+  fill: var(--ink);
+  font-weight: 700;
+}
+
+.ym-hint {
+  font-size: 10px;
+  fill: #9a9180;
+}
+
+.guide-req,
+.guide-checks {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.guide-req h3,
+.guide-checks h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.guide-req ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.guide-checks .checks {
+  padding: 0;
+}
+
+.guide-wait {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.guide-cta {
+  font-size: 15px;
+  padding: 12px 18px;
+}
+
+.guide-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-help {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
 }
 
 .station-hd span {
@@ -721,8 +987,14 @@ input {
   .tabs,
   .grid,
   .phone-layout,
-  .stage-grid {
+  .stage-grid,
+  .guide-layout,
+  .guide-visual {
     grid-template-columns: 1fr;
+  }
+
+  .guide-progress {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .pov-frame {

@@ -12,7 +12,7 @@ export function seedApp(): AppState {
       id: 'scene-self-pickup',
       name: '仓配自提 · 进出场',
       brief:
-        '提货人预约自提。调度派车备货至指定道口；司机到闸报到；门岗核验后放行入场；备货完成后面签收；门岗办理离场。本场为可插拔场景模块。',
+        '默认「现场导引」：地图定位 + 实景图 + 本步要求 + 单一操作。提货人 / 司机 / 门岗 / 调度按角色推进；熟悉后可切完整工位。',
     },
     activeStation: 'dispatch',
     job: {
