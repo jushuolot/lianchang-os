@@ -32,7 +32,7 @@ export function LoginPage() {
         <p className="brand">链场 OS</p>
         <h1>账号中心登录</h1>
         <p className="auth-hint">
-          使用 V2Way 统一账号一键进入。请先在账号中心登录，再点击「链场 OS」卡片。
+        使用 V2Way 统一账号一键进入。支持<strong>密码</strong>或<strong>手机验证码</strong>登录，再点击「链场 OS」卡片。
         </p>
         <a className="btn primary guide-cta" href={home}>
           打开账号中心
