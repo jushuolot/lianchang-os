@@ -39,30 +39,19 @@ VITE_BASE=/lianchang-os/ npm run build
 
 ## 发布到阿里云（os.v2way.com）
 
-推荐：**OSS 静态网站 + CDN**，绑定域名 `os.v2way.com`。
-
-1. 创建 OSS Bucket（公网读或 CDN 回源），开启静态网站，默认首页 `index.html`
-2. CDN 加速域名绑定 Bucket，添加 CNAME：`os.v2way.com` → CDN 分配域名
-3. HTTPS 证书（阿里云免费 DV 即可）
-4. 构建上传：
+与 www / chain / kudi 同机：**ECS `101.200.128.82` + Caddy**。
 
 ```bash
-chmod +x deploy/oss-upload.sh
-OSS_BUCKET=你的bucket OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com ./deploy/oss-upload.sh
+./deploy/deploy-aliyun.sh
 ```
 
-或容器（ECS / ACK / SAE）：
+会：根路径构建 → rsync 到 `/opt/jinshouzhi/lianchang-os` → 更新 Caddyfile → reload。
 
-```bash
-docker build -f deploy/Dockerfile -t lianchang-os:latest .
-docker run -p 80:80 lianchang-os:latest
-```
+DNS：`os.v2way.com` A 记录 → `101.200.128.82`（已解析则 Caddy 自动签证书）。
 
-GitHub Actions：仓库 Secrets 配好后，手动跑 workflow「Deploy Aliyun OSS」。
+生产地址：https://os.v2way.com/
 
-> 本机未检测到阿里云 AccessKey，需你在控制台完成 Bucket/CDN/DNS 后执行上传，或把密钥配进 Secrets。
-
-演示站（GitHub Pages）：https://jushuolot.github.io/lianchang-os/
+（可选）OSS/CDN 脚本仍保留在 `deploy/oss-upload.sh`，当前主路径为 ECS。
 
 ## 技术
 
