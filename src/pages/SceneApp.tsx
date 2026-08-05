@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/SceneContext'
+import { useAuth } from '../auth/AuthContext'
+import { accountsHomeUrl } from '../auth/accounts'
 import { phaseLabelFor, type StationId } from '../types'
 import { WorkLogPanel } from '../components/ChatThread'
 import { PovStage } from '../components/PovStage'
@@ -265,6 +267,7 @@ function StationBody() {
 
 export function SceneApp() {
   const { productName, scene, activeStation, reset, setStation, switchScene } = useApp()
+  const { user, logout } = useAuth()
   const mod = getScene(scene.id)
   const meta = mod.stationMeta[activeStation]
   const [mode, setMode] = useState<UiMode>(() => loadUi())
@@ -306,6 +309,18 @@ export function SceneApp() {
           <p className="brief">{scene.brief}</p>
         </div>
         <div className="top-actions">
+          {user ? (
+            <span className="user-chip" title={user.phone}>
+              {user.name}
+              <button type="button" className="linkish" onClick={logout}>
+                退出
+              </button>
+            </span>
+          ) : (
+            <a className="btn ghost" href={accountsHomeUrl()}>
+              账号中心
+            </a>
+          )}
           <button
             type="button"
             className={`btn ${mode === 'guide' ? 'primary' : 'ghost'}`}
